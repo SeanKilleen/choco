@@ -17,12 +17,12 @@
   <property name="version.use_semanticversioning" value="true" overwrite="false" />
   <property name="version.major" value="0" overwrite="false" />
   <property name="version.minor" value="10" overwrite="false" />
-  <property name="version.patch" value="12" overwrite="false" />
+  <property name="version.patch" value="16" overwrite="false" />
   <property name="version.fix" value="0" overwrite="false" />
   <property name="version.nuget.prerelease" value="beta" overwrite="false" />
   <property name="version.use.build_date" value="true" overwrite="false" />
   <property name="assembly.description" value="${project.name} is a product of ${company.name} - All Rights Reserved." overwrite="false" />
-  <property name="assembly.copyright" value="Copyright © 2017 - 2018 ${company.name} Copyright © 2011 - 2017, RealDimensions Software, LLC - All Rights Reserved." overwrite="false" />
+  <property name="assembly.copyright" value="Copyright © 2017 - 2020 ${company.name} Copyright © 2011 - 2017, RealDimensions Software, LLC - All Rights Reserved." overwrite="false" />
   <property name="sign.project_with_key" value="true" overwrite="false" />
 
   <!-- Build Features Overrides -->
@@ -53,7 +53,8 @@
   <property name="app.strongname" value="C:${path.separator}Program Files${path.separator}Microsoft SDKs${path.separator}Windows${path.separator}v7.0A${path.separator}Bin${path.separator}sn.exe" />
   <property name="app.strongname" value="C:${path.separator}Program Files (x86)${path.separator}Microsoft SDKs${path.separator}Windows${path.separator}v7.0A${path.separator}Bin${path.separator}sn.exe" if="${not file::exists(app.strongname)}" />
 
-  <property name="path.key.name.private" value="${environment::get-variable('CHOCOLATEY_OFFICIAL_KEY')}" if="${environment::variable-exists('CHOCOLATEY_OFFICIAL_KEY')}" />
+  <property name="msbuild.configuration" value="Release" overwrite="false" />
+  <property name="path.key.name.private" value="${environment::get-variable('CHOCOLATEY_OFFICIAL_KEY')}" if="${environment::variable-exists('CHOCOLATEY_OFFICIAL_KEY') and msbuild.configuration == 'ReleaseOfficial'}" />
 
   <property name="app.signtool" value="C:${path.separator}Program Files${path.separator}Microsoft SDKs${path.separator}Windows${path.separator}v7.0A${path.separator}Bin${path.separator}signtool.exe" />
   <property name="app.signtool" value="C:${path.separator}Program Files (x86)${path.separator}Microsoft SDKs${path.separator}Windows${path.separator}v7.0A${path.separator}Bin${path.separator}signtool.exe" if="${not file::exists(app.signtool)}" />

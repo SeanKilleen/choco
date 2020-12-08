@@ -213,7 +213,7 @@ namespace chocolatey.infrastructure.app.services
                     this.Log().Info(ChocolateyLoggers.Important, () => @"choco feature enable -n allowGlobalConfirmation");
 
                     var selection = InteractivePrompt.prompt_for_confirmation(@"Do you want to run the script?",
-                        new[] { "yes", "no", "print" },
+                        new[] { "yes", "all - yes to all", "no", "print" },
                         defaultChoice: null,
                         requireAnswer: true,
                         allowShortAnswer: true,
@@ -235,6 +235,11 @@ namespace chocolatey.infrastructure.app.services
                     }
 
                     if (selection.is_equal_to("yes")) shouldRun = true;
+                    if (selection.is_equal_to("all - yes to all"))
+                    {
+                        configuration.PromptForConfirmation = false;
+                        shouldRun = true;
+                    }
                     if (selection.is_equal_to("no"))
                     {
                         //MSI ERROR_INSTALL_USEREXIT - 1602 - https://support.microsoft.com/en-us/kb/304888 / https://msdn.microsoft.com/en-us/library/aa376931.aspx
@@ -267,7 +272,7 @@ namespace chocolatey.infrastructure.app.services
                     catch (Exception ex)
                     {
                         this.Log().Error(ex.Message.escape_curly_braces());
-                        result.ExitCode = -1;
+                        result.ExitCode = 1;
                     }
 
                     if (configuration.Features.UsePowerShellHost)
@@ -384,13 +389,15 @@ namespace chocolatey.infrastructure.app.services
             Environment.SetEnvironmentVariable("installArguments", null);
             Environment.SetEnvironmentVariable("installerArguments", null);
             Environment.SetEnvironmentVariable("chocolateyInstallArguments", null);
+            Environment.SetEnvironmentVariable("chocolateyInstallOverride", null);
             Environment.SetEnvironmentVariable("packageParameters", null);
             Environment.SetEnvironmentVariable("chocolateyPackageParameters", null);
-            Environment.SetEnvironmentVariable("chocolateyInstallOverride", null);
             Environment.SetEnvironmentVariable("chocolateyChecksum32", null);
-            Environment.SetEnvironmentVariable("chocolateyChecksumType32", null);
             Environment.SetEnvironmentVariable("chocolateyChecksum64", null);
+            Environment.SetEnvironmentVariable("chocolateyChecksumType32", null);
             Environment.SetEnvironmentVariable("chocolateyChecksumType64", null);
+            Environment.SetEnvironmentVariable("chocolateyForceX86", null);
+            Environment.SetEnvironmentVariable("DownloadCacheAvailable", null);
 
             // we only want to pass the following args to packages that would apply. 
             // like choco install git --params '' should pass those params to git.install, 

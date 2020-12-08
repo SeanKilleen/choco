@@ -1,13 +1,13 @@
 ﻿// Copyright © 2017 - 2018 Chocolatey Software, Inc
 // Copyright © 2011 - 2017 RealDimensions Software, LLC
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
-// 
+//
 // You may obtain a copy of the License at
-// 
+//
 // 	http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,13 +30,32 @@ namespace chocolatey.infrastructure.app
         private static readonly IFileSystem _fileSystem = new DotNetFileSystem();
         public static readonly string ChocolateyInstallEnvironmentVariableName = "ChocolateyInstall";
         public static readonly string Name = "Chocolatey";
-#if DEBUG
-        public static readonly string InstallLocation = _fileSystem.get_directory_name(_fileSystem.get_current_assembly_path());
-        public static readonly string LicensedAssemblyLocation = _fileSystem.file_exists(_fileSystem.combine_paths(InstallLocation, "chocolatey.licensed.dll")) ? _fileSystem.combine_paths(InstallLocation, "chocolatey.licensed.dll") : _fileSystem.combine_paths(InstallLocation, "extensions", "chocolatey", "chocolatey.licensed.dll");
- 
-#else
+
+#if FORCE_CHOCOLATEY_OFFICIAL_KEY
+        // always look at the official location of the machine installation
         public static readonly string InstallLocation = System.Environment.GetEnvironmentVariable(ChocolateyInstallEnvironmentVariableName) ?? _fileSystem.get_directory_name(_fileSystem.get_current_assembly_path());
         public static readonly string LicensedAssemblyLocation = _fileSystem.combine_paths(InstallLocation, "extensions", "chocolatey", "chocolatey.licensed.dll");
+#elif DEBUG
+        // Install location is choco.exe or chocolatey.dll
+        public static readonly string InstallLocation = _fileSystem.get_directory_name(_fileSystem.get_current_assembly_path());
+        // when being used as a reference, start by looking next to Chocolatey, then in a subfolder.
+        public static readonly string LicensedAssemblyLocation = _fileSystem.file_exists(_fileSystem.combine_paths(InstallLocation, "chocolatey.licensed.dll")) ? _fileSystem.combine_paths(InstallLocation, "chocolatey.licensed.dll") : _fileSystem.combine_paths(InstallLocation, "extensions", "chocolatey", "chocolatey.licensed.dll");
+#else
+        // Install locations is chocolatey.dll or choco.exe - In Release mode
+        // we might be testing on a server or in the local debugger. Either way,
+        // start from the assembly location and if unfound, head to the machine
+        // locations instead. This is a merge of official and Debug modes.
+        private static IAssembly _assemblyForLocation = Assembly.GetEntryAssembly().UnderlyingType != null ? Assembly.GetEntryAssembly() : Assembly.GetExecutingAssembly();
+        public static readonly string InstallLocation = _fileSystem.file_exists(_fileSystem.combine_paths(_fileSystem.get_directory_name(_assemblyForLocation.CodeBase.Replace("file:///", string.Empty)), "chocolatey.dll")) ||
+                                                        _fileSystem.file_exists(_fileSystem.combine_paths(_fileSystem.get_directory_name(_assemblyForLocation.CodeBase.Replace("file:///", string.Empty)), "choco.exe")) ?
+                _fileSystem.get_directory_name(_assemblyForLocation.CodeBase.Replace("file:///", string.Empty)) :
+                !string.IsNullOrWhiteSpace(System.Environment.GetEnvironmentVariable(ChocolateyInstallEnvironmentVariableName)) ?
+                    System.Environment.GetEnvironmentVariable(ChocolateyInstallEnvironmentVariableName) :
+                    @"C:\ProgramData\Chocolatey"
+            ;
+
+        // when being used as a reference, start by looking next to Chocolatey, then in a subfolder.
+        public static readonly string LicensedAssemblyLocation = _fileSystem.file_exists(_fileSystem.combine_paths(InstallLocation, "chocolatey.licensed.dll")) ? _fileSystem.combine_paths(InstallLocation, "chocolatey.licensed.dll") : _fileSystem.combine_paths(InstallLocation, "extensions", "chocolatey", "chocolatey.licensed.dll");
 #endif
 
         public static readonly string CommonAppDataChocolatey = _fileSystem.combine_paths(System.Environment.GetFolderPath(System.Environment.SpecialFolder.CommonApplicationData), Name);
@@ -53,10 +72,12 @@ namespace chocolatey.infrastructure.app
               System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile, System.Environment.SpecialFolderOption.DoNotVerify)
             : CommonAppDataChocolatey;
         public static readonly string UserLicenseFileLocation = _fileSystem.combine_paths(UserProfilePath, "chocolatey.license.xml");
+        public static readonly string LicensedChocolateyAssemblySimpleName = "chocolatey.licensed";
         public static readonly string LicensedComponentRegistry = @"chocolatey.licensed.infrastructure.app.registration.ContainerBinding";
         public static readonly string LicensedConfigurationBuilder = @"chocolatey.licensed.infrastructure.app.builders.ConfigurationBuilder";
         public static readonly string LicensedEnvironmentSettings = @"chocolatey.licensed.infrastructure.app.configuration.EnvironmentSettings";
         public static readonly string PackageNamesSeparator = ";";
+        public static readonly string UnofficialChocolateyPublicKey = "fd112f53c3ab578c";
         public static readonly string OfficialChocolateyPublicKey = "79d02ea9cad655eb";
 
         public static string PackagesLocation = _fileSystem.combine_paths(InstallLocation, "lib");
@@ -88,6 +109,7 @@ namespace chocolatey.infrastructure.app
             public static readonly string SystemUserName = "SYSTEM";
             public static readonly string Username = "USERNAME";
             public static readonly string ProcessorArchitecture = "PROCESSOR_ARCHITECTURE";
+            public const string ARM64_PROCESSOR_ARCHITECTURE = "ARM64";
             public static readonly string EnvironmentSeparator = ";";
 
             public static readonly string ChocolateyToolsLocation = "ChocolateyToolsLocation";
@@ -100,6 +122,7 @@ namespace chocolatey.infrastructure.app
             public static readonly string ChocolateyCheckLastExitCode = "ChocolateyCheckLastExitCode";
             public static readonly string ChocolateyPowerShellHost = "ChocolateyPowerShellHost";
             public static readonly string ChocolateyForce = "ChocolateyForce";
+            public static readonly string ChocolateyExitOnRebootDetected = "ChocolateyExitOnRebootDetected";
         }
 
         /// <summary>
@@ -111,10 +134,10 @@ namespace chocolatey.infrastructure.app
         public static readonly string[] ConfigFileExtensions = new string[] {".autoconf",".config",".conf",".cfg",".jsc",".json",".jsonp",".ini",".xml",".yaml"};
         public static readonly string ConfigFileTransformExtension = ".install.xdt";
         public static readonly string[] ShimDirectorFileExtensions = new string[] {".gui",".ignore"};
-       
+
         public static readonly string HashProviderFileTooBig = "UnableToDetectChanges_FileTooBig";
         public static readonly string HashProviderFileLocked = "UnableToDetectChanges_FileLocked";
-        
+
         /// <summary>
         /// This is a readonly bool set to true. It is only shifted for specs.
         /// </summary>
@@ -125,6 +148,12 @@ namespace chocolatey.infrastructure.app
         /// This is a readonly bool set to true. It is only shifted for specs.
         /// </summary>
         public static readonly bool AllowPrompts = true;
+
+        public static class ExitCodes
+        {
+            public static readonly int ErrorFailNoActionReboot = 350;
+            public static readonly int ErrorInstallSuspend = 1604;
+        }
 
         public static class Tools
         {
@@ -143,8 +172,9 @@ namespace chocolatey.infrastructure.app
             public static readonly string ProxyBypassList = "proxyBypassList";
             public static readonly string ProxyBypassOnLocal = "proxyBypassOnLocal";
             public static readonly string WebRequestTimeoutSeconds = "webRequestTimeoutSeconds";
+            public static readonly string UpgradeAllExceptions = "upgradeAllExceptions";
         }
-        
+
         public static class Features
         {
             public static readonly string ChecksumFiles = "checksumFiles";
@@ -160,6 +190,7 @@ namespace chocolatey.infrastructure.app
             public static readonly string FailOnInvalidOrMissingLicense = "failOnInvalidOrMissingLicense";
             public static readonly string IgnoreInvalidOptionsSwitches = "ignoreInvalidOptionsSwitches";
             public static readonly string UsePackageExitCodes = "usePackageExitCodes";
+            public static readonly string UseEnhancedExitCodes = "useEnhancedExitCodes";
             public static readonly string UseFipsCompliantChecksums = "useFipsCompliantChecksums";
             public static readonly string ScriptsCheckLastExitCode = "scriptsCheckLastExitCode";
             public static readonly string ShowNonElevatedWarnings = "showNonElevatedWarnings";
@@ -167,8 +198,12 @@ namespace chocolatey.infrastructure.app
             public static readonly string StopOnFirstPackageFailure = "stopOnFirstPackageFailure";
             public static readonly string UseRememberedArgumentsForUpgrades = "useRememberedArgumentsForUpgrades";
             public static readonly string IgnoreUnfoundPackagesOnUpgradeOutdated = "ignoreUnfoundPackagesOnUpgradeOutdated";
+            public static readonly string SkipPackageUpgradesWhenNotInstalled = "skipPackageUpgradesWhenNotInstalled";
             public static readonly string RemovePackageInformationOnUninstall = "removePackageInformationOnUninstall";
             public static readonly string LogWithoutColor = "logWithoutColor";
+            public static readonly string ExitOnRebootDetected = "exitOnRebootDetected";
+            public static readonly string LogValidationResultsOnWarnings = "logValidationResultsOnWarnings";
+            public static readonly string UsePackageRepositoryOptimizations = "usePackageRepositoryOptimizations";
         }
 
         public static class Messages

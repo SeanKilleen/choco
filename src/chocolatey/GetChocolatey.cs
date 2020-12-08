@@ -1,13 +1,13 @@
-﻿// Copyright © 2017 - 2018 Chocolatey Software, Inc
+﻿// Copyright © 2017 - 2019 Chocolatey Software, Inc
 // Copyright © 2011 - 2017 RealDimensions Software, LLC
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
-// 
+//
 // You may obtain a copy of the License at
-// 
+//
 // 	http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,11 +30,13 @@ namespace chocolatey
     using infrastructure.logging;
     using infrastructure.registration;
     using infrastructure.synchronization;
+    using log4net;
 #if !NoResources
     using resources;
 #endif
     using Assembly = infrastructure.adapters.Assembly;
     using IFileSystem = infrastructure.filesystem.IFileSystem;
+    using ILog = infrastructure.logging.ILog;
 
     // ReSharper disable InconsistentNaming
 
@@ -43,6 +45,8 @@ namespace chocolatey
     /// </summary>
     public static class Lets
     {
+        private static readonly log4net.ILog _logger = LogManager.GetLogger(typeof(Lets));
+
         private static GetChocolatey set_up()
         {
             add_assembly_resolver();
@@ -56,14 +60,21 @@ namespace chocolatey
         }
 
         private static ResolveEventHandler _handler = null;
-
         private static void add_assembly_resolver()
         {
             _handler = (sender, args) =>
             {
                 var requestedAssembly = new AssemblyName(args.Name);
-                if (requestedAssembly.get_public_key_token().is_equal_to(ApplicationParameters.OfficialChocolateyPublicKey)
-                    && !requestedAssembly.Name.is_equal_to("chocolatey.licensed")
+
+                // There are things that are ILMerged into Chocolatey. Anything with
+                // the right public key except licensed should use the choco/chocolatey assembly
+#if FORCE_CHOCOLATEY_OFFICIAL_KEY
+                var chocolateyPublicKey = ApplicationParameters.OfficialChocolateyPublicKey;
+#else
+                var chocolateyPublicKey = ApplicationParameters.UnofficialChocolateyPublicKey;
+#endif
+                if (requestedAssembly.get_public_key_token().is_equal_to(chocolateyPublicKey)
+                    && !requestedAssembly.Name.is_equal_to(ApplicationParameters.LicensedChocolateyAssemblySimpleName)
                     && !requestedAssembly.Name.EndsWith(".resources", StringComparison.OrdinalIgnoreCase))
                 {
                     return typeof(Lets).Assembly;
@@ -71,10 +82,14 @@ namespace chocolatey
 
                 try
                 {
-                    if (requestedAssembly.get_public_key_token().is_equal_to(ApplicationParameters.OfficialChocolateyPublicKey)
-                        && requestedAssembly.Name.is_equal_to("chocolatey.licensed"))
+                    if (requestedAssembly.get_public_key_token().is_equal_to(chocolateyPublicKey)
+                        && requestedAssembly.Name.is_equal_to(ApplicationParameters.LicensedChocolateyAssemblySimpleName))
                     {
-                        return Assembly.LoadFile(ApplicationParameters.LicensedAssemblyLocation).UnderlyingType;
+                        _logger.Debug("Resolving reference to chocolatey.licensed...");
+                        return AssemblyResolution.resolve_or_load_assembly(
+                            ApplicationParameters.LicensedChocolateyAssemblySimpleName,
+                            requestedAssembly.get_public_key_token(),
+                            ApplicationParameters.LicensedAssemblyLocation).UnderlyingType;
                     }
                 }
                 catch (Exception ex)
@@ -380,7 +395,7 @@ namespace chocolatey
         public ChocolateyConfiguration GetConfiguration()
         {
             ensure_environment();
-
+            
             // ensure_original_configuration() already calls create_configuration()
             // so no need to repeat, just grab the result
             var configuration = ensure_original_configuration(
@@ -459,7 +474,6 @@ namespace chocolatey
 
             configuration.PromptForConfirmation = false;
             configuration.AcceptLicense = true;
-
 
             if (_propConfig != null)
             {

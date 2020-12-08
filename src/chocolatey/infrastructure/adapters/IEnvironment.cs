@@ -46,6 +46,14 @@ namespace chocolatey.infrastructure.adapters
         bool Is64BitOperatingSystem { get; }
 
         /// <summary>
+        /// Gets a value indicating whether [is64 bit process].
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [is64 bit process]; otherwise, <c>false</c>.
+        /// </value>
+        bool Is64BitProcess { get; }
+
+        /// <summary>
         ///   Gets a value indicating whether the current process is running in user interactive mode.
         /// </summary>
         /// <returns>
@@ -64,6 +72,15 @@ namespace chocolatey.infrastructure.adapters
         /// </returns>
         /// <filterpriority>1</filterpriority>
         string NewLine { get; }
+
+        /// <summary>
+        /// Gets the fully qualified path of the current working directory.
+        /// </summary>
+        /// <returns>A string containing a directory path.</returns>
+        /// <value>
+        /// A string containing a directory path.
+        /// </value>
+        string CurrentDirectory { get; }
 
         /// <summary>
         /// Replaces the name of each environment variable embedded in the specified string with the string equivalent of the value of the variable, then returns the resulting string.
